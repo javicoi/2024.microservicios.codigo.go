@@ -6,3 +6,109 @@ tasks:
   default:
     cmds:
       - cmd: echo "TAREA POR DEFECTO"
+  init:
+    - cmd: go mod init git.curso.micro/demo.builds
+      ignore_error: true
+    - cmd: go mod tidy
+
+  run:
+    - cmd: go run main.go
+
+  build.lnx:
+    cmds:
+      - go build -o bin/webapp-lnx ./main.go
+      - ls -l bin
+
+  build.multi:
+    cmds:
+      - cmd: mkdir dist
+        ignore_error: true
+
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o dist/webapp-lnx main.go
+      - CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o dist/webapp-win.exe main.go
+      - ls -l dist
+
+  # PRACTICA-11
+  docker.build:
+    silent: true
+    cmds:
+      - docker build -t curso.micro.goapp .
+      - echo " - IMAGEN GENERADA -"
+      - docker image ls | grep curso.micro.goapp
+
+  docker.run:
+    silent: true
+    cmds:
+      - echo " - PARAMOS WEBAPP EN CASO DE ESTAR EN EJECUCION -"
+      - cmd: docker stop -t 0 webapp
+        ignore_error: true
+      - echo " - INICIAMOS WEBAPP (-itd) -"
+      - cmd: docker run --rm -itd -p 3100:3100 --name webapp curso.micro.goapp
+        ignore_error: true
+      - echo " - ENLAZAMOS LOGS... -"
+      - cmd: docker logs -f webapp
+        ignore_error: true
+      - echo " - Recuerda que el contenedor sigue en marcha."
+      - echo " - Recuerda que el contenedor sigue en marcha."
+      - echo " - Recuerda que el contenedor sigue en marcha."
+
+  #/# GIT
+  #/# GIT
+  #/# GIT
+
+  git.tag:
+    vars:
+      RAMA:
+        sh: git rev-parse --abbrev-ref HEAD
+
+    cmds:
+      - task: git.tags.del
+      - cmd: git tag -m "nueva version {{.CLI_ARGS}}" {{.CLI_ARGS}}
+      - cmd: git push --tags gitea
+
+  git.push:
+    vars:
+      RAMA:
+        sh: git rev-parse --abbrev-ref HEAD
+    cmds:
+      - cmd: git add . && git commit --allow-empty -m "cambios" && git push {{.CLI_ARGS}} {{.RAMA}}
+
+  git.push.gitea:
+    cmds:
+      - task: git.push -- gitea
+
+  git.push.github:
+    cmds:
+      - task: git.push -- github
+
+  git.pushandtag.gitea:
+    cmds:
+      - task: git.push -- gitea
+      - task: git.tag
+
+  git.tags.del:
+    cmds:
+      - cmd: git tag -d {{.CLI_ARGS}}
+        ignore_error: true
+      - cmd: git push -d gitea {{.CLI_ARGS}}
+        ignore_error: true
+
+  git.remotes:
+    vars:
+      REMOTES:
+        # Ejecutamos el comando para obtener un resultado.
+        sh: git remote show
+    cmds:
+      - for: { var: REMOTES, as: REMOTE }
+        cmd: echo "Remoto {{.REMOTE}}"
+
+  git.all:
+    vars:
+      REMOTES:
+        sh: git remote show
+      BRANCH:
+        sh: git rev-parse --abbrev-ref HEAD
+    cmds:
+      # git push <remote> <branch>
+      - for: { var: REMOTES, as: REMOTE }
+        cmd: git push {{.REMOTE}} {{.BRANCH}}
